@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deep Dark Skin Viewer</title>
+
+<style>
+@font-face{font-family:'VT323';src:url(lib/vt323.woff2) format('woff2')}
+:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--b1:#010406;--b2:#072a33;--g:#27e0cf;--ink:#d3f3f2;--dim:#78a9ad;--panel:rgba(3,10,13,.78);--line:rgba(120,230,225,.26)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--img,none) center/cover no-repeat,radial-gradient(130% 95% at 50% 105%,var(--b2),var(--b1) 68%);background-color:var(--b1);color:var(--ink);font:20px/1.1 'VT323',ui-monospace,Menlo,monospace;user-select:none;-webkit-user-select:none}
+#fx,#gl,#vig{position:fixed;inset:0;width:100%;height:100%}
+#fx{z-index:0}#gl{z-index:1}#gl canvas{display:block;touch-action:none}
+#vig{z-index:2;pointer-events:none;background:radial-gradient(ellipse at 50% 52%,transparent 42%,rgba(0,0,0,.72) 100%)}
+h1{position:fixed;z-index:3;left:16px;top:calc(14px + env(safe-area-inset-top,0px));margin:0;pointer-events:none;font:400 36px/1 'VT323',monospace;letter-spacing:.05em;color:var(--g);text-shadow:0 0 14px var(--g)}
+h1 small{display:block;margin-top:4px;font-size:18px;letter-spacing:.02em;color:var(--dim);text-shadow:none}
+#ui{position:fixed;z-index:3;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(300px,calc(100vw - 24px));max-height:72vh;overflow:auto;box-sizing:border-box;padding:10px 12px 12px;background:var(--panel);border:1px solid var(--line);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+summary{cursor:pointer;list-style:none;color:var(--g);font-size:22px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:'▾ '}details:not([open]) summary::before{content:'▸ '}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.row label{flex:1;display:flex;flex-direction:column;gap:3px;font-size:17px;color:var(--dim)}
+.row.t label{flex-direction:row;align-items:center;gap:5px}
+.rg{display:block;margin-top:8px;font-size:17px;color:var(--dim)}
+input[type=range]{width:100%;margin:2px 0 0;accent-color:var(--g)}
+input[type=color]{width:100%;height:28px;padding:0;border:1px solid var(--line);background:none}
+input[type=checkbox]{accent-color:var(--g)}
+button{flex:1 1 auto;font:inherit;color:var(--ink);background:rgba(255,255,255,.05);border:1px solid var(--line);padding:4px 8px;cursor:pointer}
+button:hover,button.on,button:focus-visible{border-color:var(--g);color:var(--g);outline:0;box-shadow:0 0 10px -2px var(--g)}
+#chips button{flex:1 1 44%}
+</style></head><body>
+<canvas id="fx"></canvas><div id="gl"></div><div id="vig"></div>
+<h1>Deep Dark<small>drag to rotate, scroll or pinch to zoom</small><small style="color:var(--g);opacity:.75">made by Ijau</small></h1>
+<details id="ui" open><summary>Customize</summary>
+<div class="row" id="chips"></div>
+<div class="row"><label>Top<input type="color" id="c1"></label><label>Bottom<input type="color" id="c2"></label><label>Glow<input type="color" id="c3"></label></div>
+<label class="rg">Souls<input type="range" id="np" min="0" max="120" value="60"></label>
+<label class="rg">Heartbeat<input type="range" id="pu" min="0" max="100" value="60"></label>
+<div class="row" id="pose"><button data-m="0">Still</button><button data-m="1">Idle</button><button data-m="2">Walk</button></div>
+<div class="row t"><label><input type="checkbox" id="spin" checked>Spin</label><label><input type="checkbox" id="cape" checked>Cape</label><label><input type="checkbox" id="slim">Slim arms</label></div>
+<div class="row"><button data-f="skin">Load skin</button><button data-f="cape">Load cape</button><button data-f="bg">Background</button></div>
+</details>
+<input type="file" id="file" accept="image/*" hidden>
+<script src="lib/three.min.js"></script>
+<script src="lib/OrbitControls.js"></script>
+<script>
+const SKIN="data:image/webp;base64,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",CAPE="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6EAAAACXBIWXMAAA7EAAAOxAGVKw4bAAADQklEQVRoge1YT0hUQRj/zfoIXSIQFGRBeSGsZsk+MtyWTeuSghAhREqXvZSHDW8LXjYI6mLUSfJgEG2H0BA8CIIdV8VWSjYKKyFYEvaiIEStEup0eM3svD+r6+6sbw/7g+XNfPPezPf95vszs4RSCrfWSyEgPnMLANDdPy2KQRsbQNfXQbzerMzUB4Cd2RhBHjjYe8HXdSn3+DdtqS26ptYR8zOfOY8LUuProWbh7w86AacvTVs+ONj5ZehfvnMBAPD+zReDfPf7cl4KM/IzyfmSGHgUyNWHdykAhJo70R7UhRcb9efqhv78vATEfqwAyBpKt9PZSWo9XMba+RLA4NZ6KSOey86/5O3jzpcvlJWZnwCAxGacC8dHIwCA8MhTLiP1Km+Lxpv7IgmFYnUDCPofZ9eu9aC6JUBLQYLLThga1H8niUxynsQmgdik7nEiGMHVLQFLuBYLpbO/6X+zCaHmTsMg8wTm/oA11mVCJL09GEXk9QqWn78DIMez7MBDgG6mkAALg8NDoNQwhwAAKH0DoMlP0tdS7IRsJ8Ij0tc7FLHJ3GN7c1Oo8rTCrfVSmRXDkAP8Q91YWIzw/sJiBP6hbllrHQmWe0KDwE46iqVEFIH7PXx8P/1N+poGD0hMxNE1EbetAicBdhiqbglQc6UBShMGZVMFzLBLeJkOFQAsJ9diYCGA7b65fVwUo6RY75W+AcMY0XwF62QHSxLU3d6ZEBDhqjmD/e009uamuMz9MYVMh4oaiWHAPYCVOVKvoj0Ifiwm9aqlBJJaj8VFWV9mra7ytBr6jAza2CBtDYMHMEO7rhS286LxxSqZSc6TXGG02+Mvam4RLqL5DHFFNB9c12/ynWdj7D129SVeL/cEl/+a4UpMvF6cHXsmTcm/D4wHknM3bkub25AEzQlGNN4gF0iwkwOAzPv7qUejALIJ8evsW1lTQ/nz6klJrpmF/InRltqiQG7yWBmU6QGEUukXrKJAxsYpANDhMM8BRPNx4xnocFjKxpUVAcwDjnJxWcYDOU6CTmFNrSPMeLObs75M44EyIwCwGigSIdt4oMxCwAmUnQecNCoEOK2A06gQ4LQCTqNCgNMKOI0KAU4r4DT+AbqUILohu6l1AAAAAElFTkSuQmCC";
+const PRE=[['Deep Dark','#010406','#072a33','#27e0cf'],['Warden Soul','#02060c','#0b3a4a','#8ffcff'],['Sculk Shrieker','#03040c','#16224a','#5a8cff'],['Ancient City','#050403','#2b1c0f','#ffa23a'],['Void','#000000','#150a22','#a56bff']];
+const LG=[[4,16,4,4,20,48],[8,16,4,4,24,48],[0,20,4,12,24,52],[4,20,4,12,20,52],[8,20,4,12,16,52],[12,20,4,12,28,52],[44,16,4,4,36,48],[48,16,4,4,40,48],[40,20,4,12,40,52],[44,20,4,12,36,52],[48,20,4,12,32,52],[52,20,4,12,44,52]];
+const $=i=>document.getElementById(i),css=document.documentElement.style,
+rgba=(h,a)=>{const n=parseInt(h.slice(1),16);return`rgba(${n>>16},${n>>8&255},${n&255},${a})`},
+cv=(w,h)=>Object.assign(document.createElement('canvas'),{width:w,height:h}),
+img=s=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=s}),
+tex=c=>{const t=new THREE.CanvasTexture(c);t.magFilter=t.minFilter=THREE.NearestFilter;return t};
+const c1=$('c1'),c2=$('c2'),c3=$('c3');
+
+/* scene */
+const rd=new THREE.WebGLRenderer({antialias:true,alpha:true});
+rd.setPixelRatio(Math.min(devicePixelRatio,2));$('gl').append(rd.domElement);
+const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(35,1,1,600),root=new THREE.Group();
+cam.position.set(30,24,78);
+const key=new THREE.DirectionalLight(0xffffff,.6);key.position.set(25,35,40);cam.add(key);
+const rim=new THREE.DirectionalLight(0x27e0cf,1.1);rim.position.set(-40,22,-50);
+sc.add(cam,root,rim,new THREE.HemisphereLight(0xcfeeff,0x0b1a20,.75));
+const ctl=new THREE.OrbitControls(cam,rd.domElement);
+Object.assign(ctl,{enableDamping:true,enablePan:false,minDistance:30,maxDistance:160,autoRotate:true,autoRotateSpeed:4});
+ctl.target.set(0,15,0);
+
+/* glowing floor under the feet */
+const gc=cv(128,128),g2=gc.getContext('2d'),gg=g2.createRadialGradient(64,64,0,64,64,64);
+[[0,.95],[.3,.3],[1,0]].forEach(([s,a])=>gg.addColorStop(s,`rgba(255,255,255,${a})`));
+g2.fillStyle=gg;g2.fillRect(0,0,128,128);
+const ground=new THREE.Mesh(new THREE.CircleGeometry(34,48),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(gc),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
+ground.rotation.x=-Math.PI/2;ground.position.y=.05;sc.add(ground);
+
+/* box with Minecraft skin UV layout (n = inflate for overlay layers) */
+function mk(w,h,d,u,v,tw,th,n){
+  const g=new THREE.BoxGeometry(w+2*n,h+2*n,d+2*n),a=g.attributes.uv;
+  [[u+d+w,v+d,d,h],[u,v+d,d,h],[u+d,v,w,d],[u+d+w,v,w,d],[u+d,v+d,w,h],[u+2*d+w,v+d,w,h]].forEach(([x,y,rw,rh],f)=>{
+    const L=x/tw,R=(x+rw)/tw,T=1-y/th,B=1-(y+rh)/th;
+    (f==3?[[L,B],[R,B],[L,T],[R,T]]:[[L,T],[R,T],[L,B],[R,B]]).forEach((p,i)=>a.setXY(f*4+i,p[0],p[1]));
+  });
+  return g;
+}
+
+let skinT,capeT,M,pose=1;
+function build(){
+  if(!skinT)return;
+  while(root.children.length)root.remove(root.children[0]);
+  const aw=$('slim').checked?3:4,
+  B=new THREE.MeshLambertMaterial({map:skinT}),
+  O=new THREE.MeshLambertMaterial({map:skinT,transparent:true,alphaTest:.02,side:THREE.DoubleSide}),
+  part=(w,h,d,u,v,u2,v2,n,px,py,cy)=>{
+    const g=new THREE.Group(),a=new THREE.Mesh(mk(w,h,d,u,v,64,64,0),B),b=new THREE.Mesh(mk(w,h,d,u2,v2,64,64,n),O);
+    a.position.y=b.position.y=cy;g.position.set(px,py,0);g.add(a,b);root.add(g);return g};
+  M={head:part(8,8,8,0,0,32,0,.5,0,24,4),body:part(8,12,4,16,16,16,32,.25,0,18,0),
+     rArm:part(aw,12,4,40,16,40,32,.25,-4-aw/2,22,-4),lArm:part(aw,12,4,32,48,48,48,.25,4+aw/2,22,-4),
+     rLeg:part(4,12,4,0,16,0,32,.25,-2,12,-6),lLeg:part(4,12,4,16,48,0,48,.25,2,12,-6)};
+  if(capeT){ /* hangs from the shoulders, outer face toward the back */
+    const cp=new THREE.Group(),cm=new THREE.Mesh(mk(10,16,1,0,0,64,32,0),new THREE.MeshLambertMaterial({map:capeT,transparent:true,alphaTest:.5,side:THREE.DoubleSide}));
+    cm.rotation.y=Math.PI;cm.position.set(0,-8,-.5);cp.add(cm);
+    cp.position.set(0,24,-2.3);cp.visible=$('cape').checked;root.add(cp);M.cape=cp;
+  }
+}
+async function setSkin(src){
+  const i=await img(src),k=i.width/64,c=cv(i.width,64*k),x=c.getContext('2d');
+  x.drawImage(i,0,0);
+  if(i.height*2<=i.width)LG.forEach(([sx,sy,w,h,dx,dy])=>{x.save();x.translate((dx+w)*k,dy*k);x.scale(-1,1);x.drawImage(i,sx*k,sy*k,w*k,h*k,0,0,w*k,h*k);x.restore()});
+  $('slim').checked=!x.getImageData(55*k,20*k,k,12*k).data.some((v,j)=>j%4==3&&v);
+  skinT=tex(c);build();
+}
+async function setCape(src){
+  const i=await img(src),k=i.width%22==0&&i.height==i.width/22*17?i.width/22:i.width/64,c=cv(64*k,32*k);
+  c.getContext('2d').drawImage(i,0,0);capeT=tex(c);build();
+}
+
+/* UI */
+function th(){css.setProperty('--b1',c1.value);css.setProperty('--b2',c2.value);css.setProperty('--g',c3.value);rim.color.set(c3.value);ground.material.color.set(c3.value)}
+[c1,c2,c3].forEach(e=>e.oninput=th);
+PRE.forEach(p=>{const b=document.createElement('button');b.textContent=p[0];b.style.cssText=`background:linear-gradient(135deg,${p[1]},${p[2]});border-color:${p[3]}`;
+  b.onclick=()=>{[c1,c2,c3].forEach((e,j)=>e.value=p[j+1]);css.removeProperty('--img');th()};$('chips').append(b)});
+document.querySelectorAll('#pose button').forEach(b=>b.onclick=()=>{pose=+b.dataset.m;document.querySelectorAll('#pose button').forEach(o=>o.classList.toggle('on',o==b))});
+$('spin').onchange=e=>{ctl.autoRotate=e.target.checked};
+$('cape').onchange=e=>{if(M&&M.cape)M.cape.visible=e.target.checked};
+$('slim').onchange=build;
+let ft;const fi=$('file');
+document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{ft=b.dataset.f;fi.click()});
+fi.onchange=async()=>{const f=fi.files[0];if(!f)return;
+  const u=await new Promise(r=>{const d=new FileReader();d.onload=()=>r(d.result);d.readAsDataURL(f)});
+  fi.value='';
+  if(ft=='skin')setSkin(u);else if(ft=='cape')setCape(u);else css.setProperty('--img',`url("${u}")`)};
+
+/* drifting souls + heartbeat glow behind the model */
+const fc=$('fx'),F=fc.getContext('2d'),ps=Array.from({length:120},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,v:8+Math.random()*22,r:.8+Math.random()*1.8,f:Math.random()*6.3,a:.35+Math.random()*.6}));
+function fx(t,dt,b,pu){
+  const W=innerWidth,H=innerHeight,g=c3.value,n=+$('np').value;
+  F.clearRect(0,0,W,H);
+  const gr=F.createRadialGradient(W/2,H*.72,0,W/2,H*.72,Math.max(W,H)*.7);
+  gr.addColorStop(0,rgba(g,.1+.3*pu*b));gr.addColorStop(1,rgba(g,0));
+  F.fillStyle=gr;F.fillRect(0,0,W,H);
+  F.shadowColor=g;F.shadowBlur=10;
+  for(let i=0;i<n;i++){const p=ps[i];p.y-=p.v*dt;p.x+=Math.sin(t*.7+p.f)*.2;
+    if(p.y<-8){p.y=H+8;p.x=Math.random()*W}
+    F.fillStyle=rgba(g,p.a*(.55+.45*Math.sin(t*2+p.f)));F.beginPath();F.arc(p.x,p.y,p.r,0,6.3);F.fill()}
+  F.shadowBlur=0;
+}
+function rs(){const W=innerWidth,H=innerHeight,d=Math.min(devicePixelRatio,2);fc.width=W*d;fc.height=H*d;F.setTransform(d,0,0,d,0,0);rd.setSize(W,H);cam.aspect=W/H;cam.updateProjectionMatrix()}
+
+/* go */
+rs();addEventListener('resize',rs);
+$('chips').firstChild.click();$('pose').children[1].click();
+if(innerWidth<720)$('ui').open=false;
+setCape(CAPE).then(()=>setSkin(SKIN));
+let last=performance.now()/1e3;
+(function loop(){
+  requestAnimationFrame(loop);
+  const t=performance.now()/1e3,dt=Math.min(t-last,.05);last=t;
+  const pu=$('pu').value/100,s=Math.max(0,Math.sin(t*3)),s2=Math.max(0,Math.sin(t*3-1)),b=Math.min(1,s**10+.6*s2**10);
+  if(M){
+    const w=pose==2?Math.sin(t*6)*.75:0,i=pose==1?1:0,a=i*(.06+.03*Math.cos(t*1.8)),br=i*Math.sin(t*1.4)*.05;
+    M.rArm.rotation.set(w+br,0,-a);M.lArm.rotation.set(-w-br,0,a);
+    M.rLeg.rotation.x=-w;M.lLeg.rotation.x=w;
+    if(M.cape)M.cape.rotation.x=.09+(pose==2?.12+.08*Math.abs(Math.sin(t*6)):i*.025*Math.sin(t*1.4));
+  }
+  ground.material.opacity=.45+.55*pu*b;
+  ctl.update();rd.render(sc,cam);fx(t,dt,b,pu);
+})();
+</script></body></html>

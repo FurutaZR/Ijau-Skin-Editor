@@ -1,0 +1,32 @@
+{
+  "name": "deep-dark-skin-viewer",
+  "version": "1.0.0",
+  "description": "Deep Dark skin viewer, made by Ijau",
+  "author": "Ijau",
+  "main": "main.js",
+  "scripts": {
+    "postinstall": "node setup.js",
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "three": "0.128.0",
+    "@fontsource/vt323": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.ijau.deepdarkskinviewer",
+    "productName": "Deep Dark Skin Viewer",
+    "files": [
+      "index.html",
+      "main.js",
+      "icon.ico",
+      "lib/**/*"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "icon.ico"
+    }
+  }
+}
