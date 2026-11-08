@@ -1,7 +1,7 @@
 {
-  "name": "deep-dark-skin-viewer",
-  "version": "1.0.0",
-  "description": "Deep Dark skin viewer, made by Ijau",
+  "name": "ijaus-skin-editor",
+  "version": "1.5.0",
+  "description": "Ijau skin editor",
   "author": "Ijau",
   "main": "main.js",
   "scripts": {
@@ -16,8 +16,8 @@
     "@fontsource/vt323": "^5.0.0"
   },
   "build": {
-    "appId": "com.ijau.deepdarkskinviewer",
-    "productName": "Deep Dark Skin Viewer",
+    "appId": "com.ijau.skineditor",
+    "productName": "Ijaus Skin Editor",
     "files": [
       "index.html",
       "main.js",
